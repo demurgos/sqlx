@@ -7,25 +7,62 @@ pub enum ParamChecking {
     Weak,
 }
 
+/// Database extension trait
+///
+/// This extension trait is primarily intended at providing helpers to generate
+/// error messages.
 pub trait DatabaseExt: Database {
+    /// Stringified path to the database type.
+    ///
+    /// Examples:
+    /// - `"sqlx::postgres::Postgres"`
+    /// - `"sqlx::sqlite::Sqlite"`
     const DATABASE_PATH: &'static str;
+    /// Stringified path to the row type.
+    ///
+    /// Examples:
+    /// - `"sqlx::postgres::PgRow"`
+    /// - `"sqlx::sqlite::SqliteRow"`
     const ROW_PATH: &'static str;
+    /// Display name for the database
+    ///
+    /// Examples:
+    /// - `"PostgreSQL"`
+    /// - `"SQLite"`
     const NAME: &'static str;
 
     const PARAM_CHECKING: ParamChecking;
 
+    /// Get `Self::DATABASE_PATH` as a parsed `syn::Path`
     fn db_path() -> syn::Path {
         syn::parse_str(Self::DATABASE_PATH).unwrap()
     }
 
+    /// Get `Self::ROW_PATH` as a parsed `syn::Path`
     fn row_path() -> syn::Path {
         syn::parse_str(Self::ROW_PATH).unwrap()
     }
 
+    /// Get the stringified Rust type for DB input parameters with the provided type info
+    ///
+    /// Examples:
+    /// - `sqlx::postgres::Postgres::param_type_for_id(&LazyPgTypeInfo::INT2)` returns `Some("i16")`
+    /// - `sqlx::sqlite::Sqlite::param_type_for_id(&SqliteTypeInfo(DataType::Blob))` returns `Some("Vec<u8>")`
+    /// - `sqlx::sqlite::Sqlite::param_type_for_id(&SqliteTypeInfo(DataType::DateTime))` returns `Some("sqlx::types::chrono::DateTime<_>")`
     fn param_type_for_id(id: &Self::TypeInfo) -> Option<&'static str>;
 
+    /// Get the stringified Rust type for DB output results with the provided type info
+    ///
+    /// Examples:
+    /// - `sqlx::postgres::Postgres::return_type_for_id(&LazyPgTypeInfo::INT2)` returns `Some("i16")`
+    /// - `sqlx::sqlite::Sqlite::return_type_for_id(&SqliteTypeInfo(DataType::Blob))` returns `Some("Vec<u8>")`
+    /// - `sqlx::sqlite::Sqlite::return_type_for_id(&SqliteTypeInfo(DataType::DateTime))` returns `Some("sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>")`
     fn return_type_for_id(id: &Self::TypeInfo) -> Option<&'static str>;
 
+    /// Get the name of the `sqlx` feature (if any) to enable support for the provided type.
+    ///
+    /// Example:
+    /// - `sqlx::postgres::Postgres::return_type_for_id(&LazyPgTypeInfo::UUID)` returns `Some("uuid")`
     fn get_feature_gate(info: &Self::TypeInfo) -> Option<&'static str>;
 }
 
@@ -47,10 +84,10 @@ macro_rules! impl_database_ext {
 
             fn param_type_for_id(info: &Self::TypeInfo) -> Option<&'static str> {
                 match () {
-                    $(
-                        $(#[$meta])?
-                        _ if <$ty as sqlx_core::types::Type<$database>>::type_info() == *info => Some(input_ty!($ty $(, $input)?)),
-                    )*
+                    // $(
+                    //     $(#[$meta])?
+                    //     _ if <$ty as sqlx_core::types::Type<$database>>::type_info() == *info => Some(input_ty!($ty $(, $input)?)),
+                    // )*
                     $(
                         $(#[$meta])?
                         _ if <$ty as sqlx_core::types::Type<$database>>::compatible(info) => Some(input_ty!($ty $(, $input)?)),
@@ -61,10 +98,10 @@ macro_rules! impl_database_ext {
 
             fn return_type_for_id(info: &Self::TypeInfo) -> Option<&'static str> {
                 match () {
-                    $(
-                        $(#[$meta])?
-                        _ if <$ty as sqlx_core::types::Type<$database>>::type_info() == *info => return Some(stringify!($ty)),
-                    )*
+                    // $(
+                    //     $(#[$meta])?
+                    //     _ if <$ty as sqlx_core::types::Type<$database>>::type_info() == *info => return Some(stringify!($ty)),
+                    // )*
                     $(
                         $(#[$meta])?
                         _ if <$ty as sqlx_core::types::Type<$database>>::compatible(info) => return Some(stringify!($ty)),

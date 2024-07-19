@@ -47,7 +47,7 @@ where
     Json<Self>: Type<DB>,
     DB: Database,
 {
-    fn type_info() -> DB::TypeInfo {
+    fn type_info() -> DB::LazyTypeInfo {
         <Json<Self> as Type<DB>>::type_info()
     }
 
@@ -81,7 +81,7 @@ where
     for<'a> Json<&'a Self>: Type<DB>,
     DB: Database,
 {
-    fn type_info() -> DB::TypeInfo {
+    fn type_info() -> DB::LazyTypeInfo {
         <Json<&Self> as Type<DB>>::type_info()
     }
 

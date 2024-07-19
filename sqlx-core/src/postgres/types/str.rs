@@ -1,30 +1,33 @@
 use crate::decode::Decode;
 use crate::encode::{Encode, IsNull};
 use crate::error::BoxDynError;
+use crate::postgres::type_info2::PgBuiltinType;
 use crate::postgres::types::array_compatible;
-use crate::postgres::{PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueRef, Postgres};
+use crate::postgres::{
+    LazyPgTypeInfo, PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueRef, Postgres,
+};
 use crate::types::Type;
 use std::borrow::Cow;
 
 impl Type<Postgres> for str {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::TEXT
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::TEXT
     }
 
     fn compatible(ty: &PgTypeInfo) -> bool {
         [
-            PgTypeInfo::TEXT,
-            PgTypeInfo::NAME,
-            PgTypeInfo::BPCHAR,
-            PgTypeInfo::VARCHAR,
-            PgTypeInfo::UNKNOWN,
+            PgBuiltinType::Text.oid(),
+            PgBuiltinType::Name.oid(),
+            PgBuiltinType::Bpchar.oid(),
+            PgBuiltinType::Varchar.oid(),
+            PgBuiltinType::Unknown.oid(),
         ]
-        .contains(ty)
+        .contains(&ty.oid())
     }
 }
 
 impl Type<Postgres> for Cow<'_, str> {
-    fn type_info() -> PgTypeInfo {
+    fn type_info() -> LazyPgTypeInfo {
         <&str as Type<Postgres>>::type_info()
     }
 
@@ -34,7 +37,7 @@ impl Type<Postgres> for Cow<'_, str> {
 }
 
 impl Type<Postgres> for String {
-    fn type_info() -> PgTypeInfo {
+    fn type_info() -> LazyPgTypeInfo {
         <&str as Type<Postgres>>::type_info()
     }
 
@@ -44,8 +47,8 @@ impl Type<Postgres> for String {
 }
 
 impl PgHasArrayType for &'_ str {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::TEXT_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::TEXT_ARRAY
     }
 
     fn array_compatible(ty: &PgTypeInfo) -> bool {
@@ -54,7 +57,7 @@ impl PgHasArrayType for &'_ str {
 }
 
 impl PgHasArrayType for Cow<'_, str> {
-    fn array_type_info() -> PgTypeInfo {
+    fn array_type_info() -> LazyPgTypeInfo {
         <&str as PgHasArrayType>::array_type_info()
     }
 
@@ -64,7 +67,7 @@ impl PgHasArrayType for Cow<'_, str> {
 }
 
 impl PgHasArrayType for String {
-    fn array_type_info() -> PgTypeInfo {
+    fn array_type_info() -> LazyPgTypeInfo {
         <&str as PgHasArrayType>::array_type_info()
     }
 

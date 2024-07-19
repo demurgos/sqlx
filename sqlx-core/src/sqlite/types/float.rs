@@ -9,6 +9,10 @@ impl Type<Sqlite> for f32 {
     fn type_info() -> SqliteTypeInfo {
         SqliteTypeInfo(DataType::Float)
     }
+
+    fn compatible(ty: &SqliteTypeInfo) -> bool {
+        *ty == SqliteTypeInfo(DataType::Float)
+    }
 }
 
 impl<'q> Encode<'q, Sqlite> for f32 {
@@ -28,6 +32,10 @@ impl<'r> Decode<'r, Sqlite> for f32 {
 impl Type<Sqlite> for f64 {
     fn type_info() -> SqliteTypeInfo {
         SqliteTypeInfo(DataType::Float)
+    }
+
+    fn compatible(ty: &SqliteTypeInfo) -> bool {
+        *ty == SqliteTypeInfo(DataType::Float)
     }
 }
 

@@ -3,20 +3,30 @@ use byteorder::{BigEndian, ByteOrder};
 use crate::decode::Decode;
 use crate::encode::{Encode, IsNull};
 use crate::error::BoxDynError;
+use crate::postgres::type_info2::PgBuiltinType;
 use crate::postgres::{
-    PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueFormat, PgValueRef, Postgres,
+    LazyPgTypeInfo, PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueFormat, PgValueRef,
+    Postgres,
 };
 use crate::types::Type;
 
 impl Type<Postgres> for i8 {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::CHAR
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::CHAR
+    }
+
+    fn compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::Char.oid()
     }
 }
 
 impl PgHasArrayType for i8 {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::CHAR_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::CHAR_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::CharArray.oid()
     }
 }
 
@@ -36,14 +46,22 @@ impl Decode<'_, Postgres> for i8 {
 }
 
 impl Type<Postgres> for i16 {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::INT2
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::INT2
+    }
+
+    fn compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::Int2.oid()
     }
 }
 
 impl PgHasArrayType for i16 {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::INT2_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::INT2_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::Int2Array.oid()
     }
 }
 
@@ -65,14 +83,22 @@ impl Decode<'_, Postgres> for i16 {
 }
 
 impl Type<Postgres> for i32 {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::INT4
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::INT4
+    }
+
+    fn compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::Int4.oid()
     }
 }
 
 impl PgHasArrayType for i32 {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::INT4_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::INT4_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::Int4Array.oid()
     }
 }
 
@@ -94,14 +120,22 @@ impl Decode<'_, Postgres> for i32 {
 }
 
 impl Type<Postgres> for i64 {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::INT8
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::INT8
+    }
+
+    fn compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::Int8.oid()
     }
 }
 
 impl PgHasArrayType for i64 {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::INT8_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::INT8_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::Int8Array.oid()
     }
 }
 

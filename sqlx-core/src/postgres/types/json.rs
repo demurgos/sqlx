@@ -1,9 +1,11 @@
 use crate::decode::Decode;
 use crate::encode::{Encode, IsNull};
 use crate::error::BoxDynError;
+use crate::postgres::type_info::PgBuiltinType;
 use crate::postgres::types::array_compatible;
 use crate::postgres::{
-    PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueFormat, PgValueRef, Postgres,
+    LazyPgTypeInfo, PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueFormat, PgValueRef,
+    Postgres,
 };
 use crate::types::{Json, Type};
 use serde::{Deserialize, Serialize};
@@ -17,18 +19,18 @@ use serde_json::Value as JsonValue;
 // about ordering of object keys.
 
 impl<T> Type<Postgres> for Json<T> {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::JSONB
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::JSONB
     }
 
     fn compatible(ty: &PgTypeInfo) -> bool {
-        *ty == PgTypeInfo::JSON || *ty == PgTypeInfo::JSONB
+        [PgBuiltinType::Json.oid(), PgBuiltinType::Jsonb.oid()].contains(&ty.oid())
     }
 }
 
 impl<T> PgHasArrayType for Json<T> {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::JSONB_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::JSONB_ARRAY
     }
 
     fn array_compatible(ty: &PgTypeInfo) -> bool {
@@ -37,8 +39,8 @@ impl<T> PgHasArrayType for Json<T> {
 }
 
 impl PgHasArrayType for JsonValue {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::JSONB_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::JSONB_ARRAY
     }
 
     fn array_compatible(ty: &PgTypeInfo) -> bool {
@@ -47,8 +49,8 @@ impl PgHasArrayType for JsonValue {
 }
 
 impl PgHasArrayType for JsonRawValue {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::JSONB_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::JSONB_ARRAY
     }
 
     fn array_compatible(ty: &PgTypeInfo) -> bool {
@@ -64,7 +66,7 @@ where
         // we have a tiny amount of dynamic behavior depending if we are resolved to be JSON
         // instead of JSONB
         buf.patch(|buf, ty: &PgTypeInfo| {
-            if *ty == PgTypeInfo::JSON || *ty == PgTypeInfo::JSON_ARRAY {
+            if ty.oid() == PgBuiltinType::Json.oid() || ty.oid() == PgBuiltinType::JsonArray.oid() {
                 buf[0] = b' ';
             }
         });
@@ -87,7 +89,9 @@ where
     fn decode(value: PgValueRef<'r>) -> Result<Self, BoxDynError> {
         let mut buf = value.as_bytes()?;
 
-        if value.format() == PgValueFormat::Binary && value.type_info == PgTypeInfo::JSONB {
+        if value.format() == PgValueFormat::Binary
+            && value.type_info.oid() == PgBuiltinType::Jsonb.oid()
+        {
             assert_eq!(
                 buf[0], 1,
                 "unsupported JSONB format version {}; please open an issue",

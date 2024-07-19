@@ -2,6 +2,7 @@ use super::{PgColumn, PgTypeInfo};
 use crate::column::ColumnIndex;
 use crate::error::Error;
 use crate::ext::ustr::UStr;
+use crate::postgres::catalog::LocalPgCatalogHandle;
 use crate::postgres::{PgArguments, Postgres};
 use crate::statement::Statement;
 use crate::HashMap;
@@ -15,11 +16,12 @@ pub struct PgStatement<'q> {
     pub(crate) metadata: Arc<PgStatementMetadata>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(crate) struct PgStatementMetadata {
     pub(crate) columns: Vec<PgColumn>,
     pub(crate) column_names: HashMap<UStr, usize>,
     pub(crate) parameters: Vec<PgTypeInfo>,
+    pub(crate) catalog: LocalPgCatalogHandle,
 }
 
 impl<'q> Statement<'q> for PgStatement<'q> {

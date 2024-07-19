@@ -7,9 +7,11 @@ use bytes::Buf;
 use crate::decode::Decode;
 use crate::encode::{Encode, IsNull};
 use crate::error::BoxDynError;
-use crate::postgres::type_info::PgTypeKind;
+use crate::postgres::catalog::PgTypeRef;
+use crate::postgres::type_info::{LazyPgType, PgBuiltinType, PgTypeKind};
 use crate::postgres::{
-    PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueFormat, PgValueRef, Postgres,
+    LazyPgTypeInfo, PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueFormat, PgValueRef,
+    Postgres,
 };
 use crate::types::Type;
 
@@ -114,8 +116,8 @@ impl<T> RangeBounds<T> for PgRange<T> {
 }
 
 impl Type<Postgres> for PgRange<i32> {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::INT4_RANGE
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::INT4_RANGE
     }
 
     fn compatible(ty: &PgTypeInfo) -> bool {
@@ -124,8 +126,8 @@ impl Type<Postgres> for PgRange<i32> {
 }
 
 impl Type<Postgres> for PgRange<i64> {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::INT8_RANGE
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::INT8_RANGE
     }
 
     fn compatible(ty: &PgTypeInfo) -> bool {
@@ -135,8 +137,8 @@ impl Type<Postgres> for PgRange<i64> {
 
 #[cfg(feature = "bigdecimal")]
 impl Type<Postgres> for PgRange<bigdecimal::BigDecimal> {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::NUM_RANGE
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::NUM_RANGE
     }
 
     fn compatible(ty: &PgTypeInfo) -> bool {
@@ -146,8 +148,8 @@ impl Type<Postgres> for PgRange<bigdecimal::BigDecimal> {
 
 #[cfg(feature = "decimal")]
 impl Type<Postgres> for PgRange<rust_decimal::Decimal> {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::NUM_RANGE
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::NUM_RANGE
     }
 
     fn compatible(ty: &PgTypeInfo) -> bool {
@@ -157,8 +159,8 @@ impl Type<Postgres> for PgRange<rust_decimal::Decimal> {
 
 #[cfg(feature = "chrono")]
 impl Type<Postgres> for PgRange<chrono::NaiveDate> {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::DATE_RANGE
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::DATE_RANGE
     }
 
     fn compatible(ty: &PgTypeInfo) -> bool {
@@ -168,8 +170,8 @@ impl Type<Postgres> for PgRange<chrono::NaiveDate> {
 
 #[cfg(feature = "chrono")]
 impl Type<Postgres> for PgRange<chrono::NaiveDateTime> {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::TS_RANGE
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::TS_RANGE
     }
 
     fn compatible(ty: &PgTypeInfo) -> bool {
@@ -179,8 +181,8 @@ impl Type<Postgres> for PgRange<chrono::NaiveDateTime> {
 
 #[cfg(feature = "chrono")]
 impl<Tz: chrono::TimeZone> Type<Postgres> for PgRange<chrono::DateTime<Tz>> {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::TSTZ_RANGE
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::TSTZ_RANGE
     }
 
     fn compatible(ty: &PgTypeInfo) -> bool {
@@ -190,8 +192,8 @@ impl<Tz: chrono::TimeZone> Type<Postgres> for PgRange<chrono::DateTime<Tz>> {
 
 #[cfg(feature = "time")]
 impl Type<Postgres> for PgRange<time::Date> {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::DATE_RANGE
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::DATE_RANGE
     }
 
     fn compatible(ty: &PgTypeInfo) -> bool {
@@ -201,8 +203,8 @@ impl Type<Postgres> for PgRange<time::Date> {
 
 #[cfg(feature = "time")]
 impl Type<Postgres> for PgRange<time::PrimitiveDateTime> {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::TS_RANGE
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::TS_RANGE
     }
 
     fn compatible(ty: &PgTypeInfo) -> bool {
@@ -212,8 +214,8 @@ impl Type<Postgres> for PgRange<time::PrimitiveDateTime> {
 
 #[cfg(feature = "time")]
 impl Type<Postgres> for PgRange<time::OffsetDateTime> {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::TSTZ_RANGE
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::TSTZ_RANGE
     }
 
     fn compatible(ty: &PgTypeInfo) -> bool {
@@ -222,70 +224,110 @@ impl Type<Postgres> for PgRange<time::OffsetDateTime> {
 }
 
 impl PgHasArrayType for PgRange<i32> {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::INT4_RANGE_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::INT4_RANGE_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::Int4RangeArray.oid()
     }
 }
 
 impl PgHasArrayType for PgRange<i64> {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::INT8_RANGE_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::INT8_RANGE_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::Int8RangeArray.oid()
     }
 }
 
 #[cfg(feature = "bigdecimal")]
 impl PgHasArrayType for PgRange<bigdecimal::BigDecimal> {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::NUM_RANGE_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::NUM_RANGE_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        *ty.kind() == PgTypeKind::Array(PgBuiltinType::NumRange.oid())
     }
 }
 
 #[cfg(feature = "decimal")]
 impl PgHasArrayType for PgRange<rust_decimal::Decimal> {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::NUM_RANGE_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::NUM_RANGE_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        *ty.kind() == PgTypeKind::Array(PgBuiltinType::NumRange.oid())
     }
 }
 
 #[cfg(feature = "chrono")]
 impl PgHasArrayType for PgRange<chrono::NaiveDate> {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::DATE_RANGE_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::DATE_RANGE_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        *ty.kind() == PgTypeKind::Array(PgBuiltinType::DateRange.oid())
     }
 }
 
 #[cfg(feature = "chrono")]
 impl PgHasArrayType for PgRange<chrono::NaiveDateTime> {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::TS_RANGE_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::TS_RANGE_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        *ty.kind() == PgTypeKind::Array(PgBuiltinType::TsRange.oid())
     }
 }
 
 #[cfg(feature = "chrono")]
 impl<Tz: chrono::TimeZone> PgHasArrayType for PgRange<chrono::DateTime<Tz>> {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::TSTZ_RANGE_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::TSTZ_RANGE_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        *ty.kind() == PgTypeKind::Array(PgBuiltinType::TstzRange.oid())
     }
 }
 
 #[cfg(feature = "time")]
 impl PgHasArrayType for PgRange<time::Date> {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::DATE_RANGE_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::DATE_RANGE_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        *ty.kind() == PgTypeKind::Array(PgBuiltinType::DateRange.oid())
     }
 }
 
 #[cfg(feature = "time")]
 impl PgHasArrayType for PgRange<time::PrimitiveDateTime> {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::TS_RANGE_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::TS_RANGE_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        *ty.kind() == PgTypeKind::Array(PgBuiltinType::TsRange.oid())
     }
 }
 
 #[cfg(feature = "time")]
 impl PgHasArrayType for PgRange<time::OffsetDateTime> {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::TSTZ_RANGE_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::TSTZ_RANGE_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        *ty.kind() == PgTypeKind::Array(PgBuiltinType::TstzRange.oid())
     }
 }
 
@@ -333,7 +375,7 @@ where
         match value.format {
             PgValueFormat::Binary => {
                 let element_ty = if let PgTypeKind::Range(element) = &value.type_info.0.kind() {
-                    element
+                    element.get()
                 } else {
                     return Err(format!("unexpected non-range type {}", value.type_info).into());
                 };
@@ -350,8 +392,12 @@ where
                 }
 
                 if !flags.contains(RangeFlags::LB_INF) {
-                    let value =
-                        T::decode(PgValueRef::get(&mut buf, value.format, element_ty.clone()))?;
+                    let value = T::decode(PgValueRef::get(
+                        &mut buf,
+                        value.format,
+                        value.catalog.clone(),
+                        element_ty.clone(),
+                    ))?;
 
                     start = if flags.contains(RangeFlags::LB_INC) {
                         Bound::Included(value)
@@ -361,8 +407,12 @@ where
                 }
 
                 if !flags.contains(RangeFlags::UB_INF) {
-                    let value =
-                        T::decode(PgValueRef::get(&mut buf, value.format, element_ty.clone()))?;
+                    let value = T::decode(PgValueRef::get(
+                        &mut buf,
+                        value.format,
+                        value.catalog.clone(),
+                        element_ty.clone(),
+                    ))?;
 
                     end = if flags.contains(RangeFlags::UB_INC) {
                         Bound::Included(value)
@@ -447,11 +497,24 @@ where
 
                     count += 1;
                     if !(element.is_empty() && !quoted) {
+                        let lazy_type_info = T::type_info();
+                        let type_info = match lazy_type_info.0 {
+                            LazyPgType::Fetched(ty) => value
+                                .catalog
+                                .read()
+                                .resolve_type_info(&PgTypeRef::Oid(ty.oid())),
+                            LazyPgType::Ref(r) => value.catalog.read().resolve_type_info(&r),
+                        };
+                        let type_info = type_info.map_err(|e| {
+                            BoxDynError::from(format!("unresolved range type: {}", e))
+                        })?;
+
                         let value = Some(T::decode(PgValueRef {
-                            type_info: T::type_info(),
-                            format: PgValueFormat::Text,
                             value: Some(element.as_bytes()),
                             row: None,
+                            catalog: value.catalog.clone(),
+                            type_info,
+                            format: PgValueFormat::Text,
                         })?);
 
                         if count == 1 {
@@ -517,7 +580,7 @@ fn range_compatible<E: Type<Postgres>>(ty: &PgTypeInfo) -> bool {
     // we require the declared type to be a _range_ with an
     // element type that is acceptable
     if let PgTypeKind::Range(element) = &ty.kind() {
-        return E::compatible(&element);
+        return E::compatible(&element.get());
     }
 
     false

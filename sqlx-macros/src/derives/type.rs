@@ -80,7 +80,7 @@ fn expand_derive_has_sql_type_transparent(
         return Ok(quote!(
             #[automatically_derived]
             impl #impl_generics ::sqlx::Type< DB > for #ident #ty_generics #where_clause {
-                fn type_info() -> DB::TypeInfo {
+                fn type_info() -> DB::LazyTypeInfo {
                     <#ty as ::sqlx::Type<DB>>::type_info()
                 }
 
@@ -92,7 +92,7 @@ fn expand_derive_has_sql_type_transparent(
             #[cfg(feature = "postgres")]
             impl #array_impl_generics ::sqlx::postgres::PgHasArrayType for #ident #ty_generics
             #array_where_clause {
-                fn array_type_info() -> ::sqlx::postgres::PgTypeInfo {
+                fn array_type_info() -> ::sqlx::postgres::LazyPgTypeInfo {
                     <#ty as ::sqlx::postgres::PgHasArrayType>::array_type_info()
                 }
             }
@@ -107,8 +107,12 @@ fn expand_derive_has_sql_type_transparent(
         tts.extend(quote!(
             #[automatically_derived]
             impl ::sqlx::Type<::sqlx::postgres::Postgres> for #ident #ty_generics {
-                fn type_info() -> ::sqlx::postgres::PgTypeInfo {
-                    ::sqlx::postgres::PgTypeInfo::with_name(#ty_name)
+                fn type_info() -> ::sqlx::postgres::LazyPgTypeInfo {
+                    ::sqlx::postgres::LazyPgTypeInfo::with_name(#ty_name)
+                }
+
+                fn compatible(ty: &::sqlx::postgres::PgTypeInfo) -> bool {
+                    ty.name().eq_ignore_ascii_case(#ty_name)
                 }
             }
         ));
@@ -130,7 +134,7 @@ fn expand_derive_has_sql_type_weak_enum(
         where
             #repr: ::sqlx::Type<DB>,
         {
-            fn type_info() -> DB::TypeInfo {
+            fn type_info() -> DB::LazyPgTypeInfo {
                 <#repr as ::sqlx::Type<DB>>::type_info()
             }
 
@@ -173,8 +177,8 @@ fn expand_derive_has_sql_type_strong_enum(
         tts.extend(quote!(
             #[automatically_derived]
             impl ::sqlx::Type<::sqlx::Postgres> for #ident {
-                fn type_info() -> ::sqlx::postgres::PgTypeInfo {
-                    ::sqlx::postgres::PgTypeInfo::with_name(#ty_name)
+                fn type_info() -> ::sqlx::postgres::LazyPgTypeInfo {
+                    ::sqlx::postgres::LazyPgTypeInfo::with_name(#ty_name)
                 }
             }
         ));
@@ -213,8 +217,12 @@ fn expand_derive_has_sql_type_struct(
         tts.extend(quote!(
             #[automatically_derived]
             impl ::sqlx::Type<::sqlx::Postgres> for #ident {
-                fn type_info() -> ::sqlx::postgres::PgTypeInfo {
-                    ::sqlx::postgres::PgTypeInfo::with_name(#ty_name)
+                fn type_info() -> ::sqlx::postgres::LazyPgTypeInfo {
+                    ::sqlx::postgres::LazyPgTypeInfo::with_name(#ty_name)
+                }
+
+                fn compatible(ty: &::sqlx::postgres::PgTypeInfo) -> bool {
+                    ty.name().eq_ignore_ascii_case(#ty_name)
                 }
             }
         ));

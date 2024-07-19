@@ -32,10 +32,11 @@ impl Row for PgRow {
         let value = self.data.get(index);
 
         Ok(PgValueRef {
-            format: self.format,
-            row: Some(&self.data.storage),
-            type_info: column.type_info.clone(),
             value,
+            row: Some(&self.data.storage),
+            catalog: self.metadata.catalog.clone(),
+            type_info: column.type_info.clone(),
+            format: self.format,
         })
     }
 }

@@ -51,7 +51,7 @@ where
     fn prepare_with<'e, 'q: 'e>(
         self,
         sql: &'q str,
-        parameters: &'e [<Self::Database as Database>::TypeInfo],
+        parameters: &'e [<Self::Database as Database>::LazyTypeInfo],
     ) -> BoxFuture<'e, Result<<Self::Database as HasStatement<'q>>::Statement, Error>> {
         let pool = self.clone();
 
@@ -110,7 +110,7 @@ macro_rules! impl_executor_for_pool_connection {
             fn prepare_with<'e, 'q: 'e>(
                 self,
                 sql: &'q str,
-                parameters: &'e [<$DB as crate::database::Database>::TypeInfo],
+                parameters: &'e [<$DB as crate::database::Database>::LazyTypeInfo],
             ) -> futures_core::future::BoxFuture<
                 'e,
                 Result<<$DB as crate::database::HasStatement<'q>>::Statement, crate::error::Error>,

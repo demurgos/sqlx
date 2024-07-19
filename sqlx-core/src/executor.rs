@@ -156,7 +156,7 @@ pub trait Executor<'c>: Send + Debug + Sized {
     fn prepare_with<'e, 'q: 'e>(
         self,
         sql: &'q str,
-        parameters: &'e [<Self::Database as Database>::TypeInfo],
+        parameters: &'e [<Self::Database as Database>::LazyTypeInfo],
     ) -> BoxFuture<'e, Result<<Self::Database as HasStatement<'q>>::Statement, Error>>
     where
         'c: 'e;

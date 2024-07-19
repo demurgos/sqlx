@@ -11,6 +11,7 @@ use crate::error::Error;
 use crate::executor::Executor;
 use crate::ext::ustr::UStr;
 use crate::io::Decode;
+use crate::postgres::catalog::LocalPgCatalogHandle;
 use crate::postgres::message::{
     Close, Message, MessageFormat, Query, ReadyForQuery, Terminate, TransactionStatus,
 };
@@ -52,6 +53,13 @@ pub struct PgConnection {
     // cache statement by query string to the id and columns
     cache_statement: StatementCache<(Oid, Arc<PgStatementMetadata>)>,
 
+    // keep track of metadata fetched from the DB (namespaces, types, ...)
+    local_catalog: LocalPgCatalogHandle,
+
+    // if true, we are already in the process of fetching types
+    // (to avoid recursing)
+    fetching_types: bool,
+
     // cache user-defined types by id <-> info
     cache_type_info: HashMap<Oid, PgTypeInfo>,
     cache_type_oid: HashMap<UStr, Oid>,
@@ -70,6 +78,11 @@ impl PgConnection {
     /// the version number of the server in `libpq` format
     pub fn server_version_num(&self) -> Option<u32> {
         self.stream.server_version_num
+    }
+
+    pub fn declare_type<T: crate::types::Type<Postgres>>(&self) {
+        let ty = T::type_info();
+        self.local_catalog.write().declare_type(ty.to_ref());
     }
 
     // will return when the connection is ready for another query

@@ -22,6 +22,8 @@ impl Database for MySql {
 
     type TypeInfo = MySqlTypeInfo;
 
+    type LazyTypeInfo = MySqlTypeInfo;
+
     type Value = MySqlValue;
 }
 

@@ -1,20 +1,30 @@
 use crate::decode::Decode;
 use crate::encode::{Encode, IsNull};
 use crate::error::BoxDynError;
+use crate::postgres::type_info2::PgBuiltinType;
 use crate::postgres::{
-    PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueFormat, PgValueRef, Postgres,
+    LazyPgTypeInfo, PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueFormat, PgValueRef,
+    Postgres,
 };
 use crate::types::Type;
 
 impl Type<Postgres> for bool {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::BOOL
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::BOOL
+    }
+
+    fn compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::Bool.oid()
     }
 }
 
 impl PgHasArrayType for bool {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::BOOL_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::BOOL_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::BoolArray.oid()
     }
 }
 

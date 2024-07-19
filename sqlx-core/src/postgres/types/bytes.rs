@@ -1,26 +1,40 @@
 use crate::decode::Decode;
 use crate::encode::{Encode, IsNull};
 use crate::error::BoxDynError;
+use crate::postgres::type_info2::PgBuiltinType;
 use crate::postgres::{
-    PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueFormat, PgValueRef, Postgres,
+    LazyPgTypeInfo, PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueFormat, PgValueRef,
+    Postgres,
 };
 use crate::types::Type;
 
 impl PgHasArrayType for u8 {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::BYTEA
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::BYTEA
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::Bytea.oid()
     }
 }
 
 impl PgHasArrayType for &'_ [u8] {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::BYTEA_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::BYTEA_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::ByteaArray.oid()
     }
 }
 
 impl PgHasArrayType for Vec<u8> {
-    fn array_type_info() -> PgTypeInfo {
+    fn array_type_info() -> LazyPgTypeInfo {
         <[&[u8]] as Type<Postgres>>::type_info()
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        <[&[u8]] as Type<Postgres>>::compatible(ty)
     }
 }
 

@@ -2,7 +2,8 @@ use crate::decode::Decode;
 use crate::encode::{Encode, IsNull};
 use crate::error::BoxDynError;
 use crate::postgres::{
-    PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueFormat, PgValueRef, Postgres,
+    LazyPgTypeInfo, PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueFormat, PgValueRef,
+    Postgres,
 };
 use crate::types::Type;
 use std::fmt::{self, Display, Formatter};
@@ -170,15 +171,23 @@ impl Deref for PgLTree {
 }
 
 impl Type<Postgres> for PgLTree {
-    fn type_info() -> PgTypeInfo {
+    fn type_info() -> LazyPgTypeInfo {
         // Since `ltree` is enabled by an extension, it does not have a stable OID.
-        PgTypeInfo::with_name("ltree")
+        LazyPgTypeInfo::with_name("ltree")
+    }
+
+    fn compatible(ty: &PgTypeInfo) -> bool {
+        ty.name().eq_ignore_ascii_case("ltree")
     }
 }
 
 impl PgHasArrayType for PgLTree {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::with_name("_ltree")
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::with_name("_ltree")
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        ty.name().eq_ignore_ascii_case("_ltree")
     }
 }
 

@@ -3,20 +3,30 @@ use byteorder::{BigEndian, ByteOrder};
 use crate::decode::Decode;
 use crate::encode::{Encode, IsNull};
 use crate::error::BoxDynError;
+use crate::postgres::type_info2::PgBuiltinType;
 use crate::postgres::{
-    PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueFormat, PgValueRef, Postgres,
+    LazyPgTypeInfo, PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueFormat, PgValueRef,
+    Postgres,
 };
 use crate::types::Type;
 
 impl Type<Postgres> for f32 {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::FLOAT4
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::FLOAT4
+    }
+
+    fn compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::Float4.oid()
     }
 }
 
 impl PgHasArrayType for f32 {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::FLOAT4_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::FLOAT4_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::Float4Array.oid()
     }
 }
 
@@ -38,14 +48,22 @@ impl Decode<'_, Postgres> for f32 {
 }
 
 impl Type<Postgres> for f64 {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::FLOAT8
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::FLOAT8
+    }
+
+    fn compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::Float8.oid()
     }
 }
 
 impl PgHasArrayType for f64 {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::FLOAT8_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::FLOAT8_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::Float8Array.oid()
     }
 }
 

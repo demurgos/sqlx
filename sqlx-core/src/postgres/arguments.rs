@@ -5,7 +5,7 @@ use crate::arguments::Arguments;
 use crate::encode::{Encode, IsNull};
 use crate::error::Error;
 use crate::ext::ustr::UStr;
-use crate::postgres::{PgConnection, PgTypeInfo, Postgres};
+use crate::postgres::{LazyPgTypeInfo, PgConnection, PgTypeInfo, Postgres};
 use crate::types::Type;
 
 // TODO: buf.patch(|| ...) is a poor name, can we think of a better name? Maybe `buf.lazy(||)` ?
@@ -51,7 +51,7 @@ pub struct PgArgumentBuffer {
 #[derive(Default)]
 pub struct PgArguments {
     // Types of each bind parameter
-    pub(crate) types: Vec<PgTypeInfo>,
+    pub(crate) types: Vec<LazyPgTypeInfo>,
 
     // Buffer of encoded bind parameters
     pub(crate) buffer: PgArgumentBuffer,

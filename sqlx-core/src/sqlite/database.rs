@@ -22,6 +22,8 @@ impl Database for Sqlite {
 
     type TypeInfo = SqliteTypeInfo;
 
+    type LazyTypeInfo = SqliteTypeInfo;
+
     type Value = SqliteValue;
 }
 

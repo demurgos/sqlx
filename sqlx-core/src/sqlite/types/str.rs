@@ -11,6 +11,10 @@ impl Type<Sqlite> for str {
     fn type_info() -> SqliteTypeInfo {
         SqliteTypeInfo(DataType::Text)
     }
+
+    fn compatible(ty: &SqliteTypeInfo) -> bool {
+        *ty == SqliteTypeInfo(DataType::Text)
+    }
 }
 
 impl<'q> Encode<'q, Sqlite> for &'q str {
@@ -30,6 +34,10 @@ impl<'r> Decode<'r, Sqlite> for &'r str {
 impl Type<Sqlite> for String {
     fn type_info() -> SqliteTypeInfo {
         <&str as Type<Sqlite>>::type_info()
+    }
+
+    fn compatible(ty: &SqliteTypeInfo) -> bool {
+        <&str as Type<Sqlite>>::compatible(ty)
     }
 }
 

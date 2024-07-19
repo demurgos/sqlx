@@ -1,22 +1,31 @@
 use crate::decode::Decode;
 use crate::error::BoxDynError;
+use crate::postgres::type_info2::PgBuiltinType;
 use crate::postgres::types::PgRecordDecoder;
-use crate::postgres::{PgHasArrayType, PgTypeInfo, PgValueRef, Postgres};
+use crate::postgres::{LazyPgTypeInfo, PgHasArrayType, PgTypeInfo, PgValueRef, Postgres};
 use crate::types::Type;
 
 macro_rules! impl_type_for_tuple {
     ($( $idx:ident : $T:ident ),*) => {
         impl<$($T,)*> Type<Postgres> for ($($T,)*) {
             #[inline]
-            fn type_info() -> PgTypeInfo {
-                PgTypeInfo::RECORD
+            fn type_info() -> LazyPgTypeInfo {
+                LazyPgTypeInfo::RECORD
+            }
+
+            fn compatible(ty: &PgTypeInfo) -> bool {
+                ty.oid() == PgBuiltinType::Record.oid()
             }
         }
 
         impl<$($T,)*> PgHasArrayType for ($($T,)*) {
             #[inline]
-            fn array_type_info() -> PgTypeInfo {
-                PgTypeInfo::RECORD_ARRAY
+            fn array_type_info() -> LazyPgTypeInfo {
+                LazyPgTypeInfo::RECORD_ARRAY
+            }
+
+            fn array_compatible(ty: &PgTypeInfo) -> bool {
+                ty.oid() == PgBuiltinType::RecordArray.oid()
             }
         }
 

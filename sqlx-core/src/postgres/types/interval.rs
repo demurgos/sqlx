@@ -5,8 +5,10 @@ use byteorder::{NetworkEndian, ReadBytesExt};
 use crate::decode::Decode;
 use crate::encode::{Encode, IsNull};
 use crate::error::BoxDynError;
+use crate::postgres::type_info2::PgBuiltinType;
 use crate::postgres::{
-    PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueFormat, PgValueRef, Postgres,
+    LazyPgTypeInfo, PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueFormat, PgValueRef,
+    Postgres,
 };
 use crate::types::Type;
 
@@ -20,14 +22,22 @@ pub struct PgInterval {
 }
 
 impl Type<Postgres> for PgInterval {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::INTERVAL
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::INTERVAL
+    }
+
+    fn compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::Interval.oid()
     }
 }
 
 impl PgHasArrayType for PgInterval {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::INTERVAL_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::INTERVAL_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::IntervalArray.oid()
     }
 }
 
@@ -73,14 +83,22 @@ impl Encode<'_, Postgres> for PgInterval {
 // This is to enable ease-of-use for encoding when its simple
 
 impl Type<Postgres> for std::time::Duration {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::INTERVAL
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::INTERVAL
+    }
+
+    fn compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::Interval.oid()
     }
 }
 
 impl PgHasArrayType for std::time::Duration {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::INTERVAL_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::INTERVAL_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::IntervalArray.oid()
     }
 }
 
@@ -120,6 +138,10 @@ impl TryFrom<std::time::Duration> for PgInterval {
 impl Type<Postgres> for chrono::Duration {
     fn type_info() -> PgTypeInfo {
         PgTypeInfo::INTERVAL
+    }
+
+    fn compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::Interval.oid()
     }
 }
 
@@ -182,6 +204,10 @@ impl TryFrom<chrono::Duration> for PgInterval {
 impl Type<Postgres> for time::Duration {
     fn type_info() -> PgTypeInfo {
         PgTypeInfo::INTERVAL
+    }
+
+    fn compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::Interval.oid()
     }
 }
 

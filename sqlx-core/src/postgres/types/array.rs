@@ -4,23 +4,25 @@ use std::borrow::Cow;
 use crate::decode::Decode;
 use crate::encode::{Encode, IsNull};
 use crate::error::BoxDynError;
-use crate::postgres::type_info::PgType;
+use crate::postgres::catalog::PgTypeRef;
+use crate::postgres::type_info::{LazyPgType, PgType};
 use crate::postgres::types::Oid;
-use crate::postgres::{PgArgumentBuffer, PgTypeInfo, PgValueFormat, PgValueRef, Postgres};
+use crate::postgres::{
+    LazyPgTypeInfo, PgArgumentBuffer, PgTypeInfo, PgValueFormat, PgValueRef, Postgres,
+};
 use crate::types::Type;
 
 pub trait PgHasArrayType {
-    fn array_type_info() -> PgTypeInfo;
-    fn array_compatible(ty: &PgTypeInfo) -> bool {
-        *ty == Self::array_type_info()
-    }
+    fn array_type_info() -> LazyPgTypeInfo;
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool;
 }
 
 impl<T> PgHasArrayType for Option<T>
 where
     T: PgHasArrayType,
 {
-    fn array_type_info() -> PgTypeInfo {
+    fn array_type_info() -> LazyPgTypeInfo {
         T::array_type_info()
     }
 
@@ -33,7 +35,7 @@ impl<T> Type<Postgres> for [T]
 where
     T: PgHasArrayType,
 {
-    fn type_info() -> PgTypeInfo {
+    fn type_info() -> LazyPgTypeInfo {
         T::array_type_info()
     }
 
@@ -46,7 +48,7 @@ impl<T> Type<Postgres> for Vec<T>
 where
     T: PgHasArrayType,
 {
-    fn type_info() -> PgTypeInfo {
+    fn type_info() -> LazyPgTypeInfo {
         T::array_type_info()
     }
 
@@ -82,10 +84,9 @@ where
 
         // element type
         match type_info.0 {
-            PgType::DeclareWithName(name) => buf.patch_type_by_name(&name),
-
-            ty => {
-                buf.extend(&ty.oid().0.to_be_bytes());
+            LazyPgType::Ref(PgTypeRef::Name(name)) => buf.patch_type_by_name(&name),
+            LazyPgType::Ref(PgTypeRef::Oid(oid)) | LazyPgType::Fetched(PgType { oid, .. }) => {
+                buf.extend(&oid.0.to_be_bytes());
             }
         }
 
@@ -132,9 +133,16 @@ where
 
                 // the OID of the element
                 let element_type_oid = Oid(buf.get_u32());
-                let element_type_info: PgTypeInfo = PgTypeInfo::try_from_oid(element_type_oid)
-                    .or_else(|| value.type_info.try_array_element().map(Cow::into_owned))
-                    .unwrap_or_else(|| PgTypeInfo(PgType::DeclareWithOid(element_type_oid)));
+                let element_type_info: PgTypeInfo = value
+                    .type_info
+                    .try_array_element()
+                    .map(Cow::into_owned)
+                    .ok_or_else(|| {
+                        BoxDynError::from(format!("failed to resolve array element type"))
+                    })?;
+                if element_type_oid != element_type_info.oid() {
+                    return Err(format!("encountered element type with oid {} while decoding an array expected to contain types with oid {}", element_type_oid, element_type_info.oid()).into());
+                }
 
                 // length of the array axis
                 let len = buf.get_i32();
@@ -152,6 +160,7 @@ where
                     elements.push(T::decode(PgValueRef::get(
                         &mut buf,
                         format,
+                        value.catalog.clone(),
                         element_type_info.clone(),
                     ))?)
                 }
@@ -161,7 +170,13 @@ where
 
             PgValueFormat::Text => {
                 // no type is provided from the database for the element
-                let element_type_info = T::type_info();
+                let element_type_info: PgTypeInfo = value
+                    .type_info
+                    .try_array_element()
+                    .map(Cow::into_owned)
+                    .ok_or_else(|| {
+                        BoxDynError::from(format!("failed to resolve array element type"))
+                    })?;
 
                 let s = value.as_str()?;
 
@@ -185,6 +200,7 @@ where
                 let mut done = false;
                 let mut in_quotes = false;
                 let mut in_escape = false;
+                let catalog = &value.catalog;
                 let mut value = String::with_capacity(10);
                 let mut chars = s.chars();
                 let mut elements = Vec::with_capacity(4);
@@ -231,6 +247,7 @@ where
                     elements.push(T::decode(PgValueRef {
                         value: value_opt,
                         row: None,
+                        catalog: catalog.clone(),
                         type_info: element_type_info.clone(),
                         format,
                     })?);

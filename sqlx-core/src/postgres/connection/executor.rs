@@ -2,15 +2,16 @@ use crate::describe::Describe;
 use crate::error::Error;
 use crate::executor::{Execute, Executor};
 use crate::logger::QueryLogger;
+use crate::postgres::catalog::PgTypeRef;
 use crate::postgres::message::{
     self, Bind, Close, CommandComplete, DataRow, MessageFormat, ParameterDescription, Parse, Query,
     RowDescription,
 };
 use crate::postgres::statement::PgStatementMetadata;
-use crate::postgres::type_info::PgType;
+use crate::postgres::type_info2::LazyPgType;
 use crate::postgres::types::Oid;
 use crate::postgres::{
-    statement::PgStatement, PgArguments, PgConnection, PgQueryResult, PgRow, PgTypeInfo,
+    statement::PgStatement, LazyPgTypeInfo, PgArguments, PgConnection, PgQueryResult, PgRow,
     PgValueFormat, Postgres,
 };
 use either::Either;
@@ -23,7 +24,7 @@ use std::{borrow::Cow, sync::Arc};
 async fn prepare(
     conn: &mut PgConnection,
     sql: &str,
-    parameters: &[PgTypeInfo],
+    parameters: &[LazyPgTypeInfo],
     metadata: Option<Arc<PgStatementMetadata>>,
 ) -> Result<(Oid, Arc<PgStatementMetadata>), Error> {
     let id = conn.next_statement_id;
@@ -36,11 +37,12 @@ async fn prepare(
     let mut param_types = Vec::with_capacity(parameters.len());
 
     for ty in parameters {
-        param_types.push(if let PgType::DeclareWithName(name) = &ty.0 {
-            conn.fetch_type_id_by_name(name).await?
-        } else {
-            ty.0.oid()
-        });
+        let ty_oid = match &ty.0 {
+            LazyPgType::Fetched(t) => t.oid(),
+            LazyPgType::Ref(PgTypeRef::Oid(oid)) => *oid,
+            LazyPgType::Ref(PgTypeRef::Name(name)) => conn.fetch_type_id_by_name(name).await?,
+        };
+        param_types.push(ty_oid);
     }
 
     // flush and wait until we are re-ready
@@ -94,6 +96,7 @@ async fn prepare(
             parameters,
             columns,
             column_names,
+            catalog: conn.local_catalog.clone(),
         })
     };
 
@@ -164,7 +167,7 @@ impl PgConnection {
     async fn get_or_prepare<'a>(
         &mut self,
         sql: &str,
-        parameters: &[PgTypeInfo],
+        parameters: &[LazyPgTypeInfo],
         // should we store the result of this prepare to the cache
         store_to_cache: bool,
         // optional metadata that was provided by the user, this means they are reusing
@@ -219,7 +222,7 @@ impl PgConnection {
             // patch holes created during encoding
             arguments.apply_patches(self, &metadata.parameters).await?;
 
-            // apply patches use fetch_optional thaht may produce `PortalSuspended` message,
+            // apply patches use fetch_optional that may produce `PortalSuspended` message,
             // consume messages til `ReadyForQuery` before bind and execute
             self.wait_until_ready().await?;
 
@@ -255,7 +258,12 @@ impl PgConnection {
             self.pending_ready_for_query_count += 1;
 
             // metadata starts out as "nothing"
-            metadata = Arc::new(PgStatementMetadata::default());
+            metadata = Arc::new(PgStatementMetadata {
+                columns: vec![],
+                column_names: Default::default(),
+                parameters: vec![],
+                catalog: self.local_catalog.clone(),
+            });
 
             // and unprepared statements are text
             PgValueFormat::Text
@@ -300,6 +308,7 @@ impl PgConnection {
                             column_names,
                             columns,
                             parameters: Vec::default(),
+                            catalog: self.local_catalog.clone(),
                         });
                     }
 
@@ -395,7 +404,7 @@ impl<'c> Executor<'c> for &'c mut PgConnection {
     fn prepare_with<'e, 'q: 'e>(
         self,
         sql: &'q str,
-        parameters: &'e [PgTypeInfo],
+        parameters: &'e [LazyPgTypeInfo],
     ) -> BoxFuture<'e, Result<PgStatement<'q>, Error>>
     where
         'c: 'e,

@@ -3,7 +3,9 @@ use bytes::Buf;
 use crate::decode::Decode;
 use crate::encode::Encode;
 use crate::error::{mismatched_types, BoxDynError};
-use crate::postgres::type_info::{PgType, PgTypeKind};
+use crate::postgres::catalog::{LocalPgCatalogHandle, PgTypeRef};
+use crate::postgres::type_info::{PgBuiltinType, PgType, PgTypeKind};
+use crate::postgres::type_info2::LazyPgType;
 use crate::postgres::types::Oid;
 use crate::postgres::{PgArgumentBuffer, PgTypeInfo, PgValueFormat, PgValueRef, Postgres};
 use crate::type_info::TypeInfo;
@@ -41,13 +43,16 @@ impl<'a> PgRecordEncoder<'a> {
     {
         let ty = value.produces().unwrap_or_else(T::type_info);
 
-        if let PgType::DeclareWithName(name) = ty.0 {
-            // push a hole for this type ID
-            // to be filled in on query execution
-            self.buf.patch_type_by_name(&name);
-        } else {
-            // write type id
-            self.buf.extend(&ty.0.oid().0.to_be_bytes());
+        match ty.0 {
+            LazyPgType::Ref(PgTypeRef::Name(name)) => {
+                // push a hole for this type ID
+                // to be filled in on query execution
+                self.buf.patch_type_by_name(&name);
+            }
+            LazyPgType::Ref(PgTypeRef::Oid(oid)) | LazyPgType::Fetched(PgType { oid, .. }) => {
+                // write type id
+                self.buf.extend(&oid.0.to_be_bytes());
+            }
         }
 
         self.buf.encode(value);
@@ -60,6 +65,7 @@ impl<'a> PgRecordEncoder<'a> {
 #[doc(hidden)]
 pub struct PgRecordDecoder<'r> {
     buf: &'r [u8],
+    catalog: LocalPgCatalogHandle,
     typ: PgTypeInfo,
     fmt: PgValueFormat,
     ind: usize,
@@ -86,6 +92,7 @@ impl<'r> PgRecordDecoder<'r> {
         Ok(Self {
             buf,
             fmt,
+            catalog: value.catalog.clone(),
             typ,
             ind: 0,
         })
@@ -103,18 +110,30 @@ impl<'r> PgRecordDecoder<'r> {
         match self.fmt {
             PgValueFormat::Binary => {
                 let element_type_oid = Oid(self.buf.get_u32());
-                let element_type_opt = match self.typ.0.kind() {
-                    PgTypeKind::Simple if self.typ.0 == PgType::Record => {
-                        PgTypeInfo::try_from_oid(element_type_oid)
+                let element_type: PgTypeInfo = match self.typ.0.kind() {
+                    PgTypeKind::Simple if self.typ.oid() == PgBuiltinType::Record.oid() => {
+                        // Standard `RECORD` type
+                        let ty = self
+                            .catalog
+                            .read()
+                            .resolve_type_info(&PgTypeRef::Oid(element_type_oid))
+                            .map_err(|e| {
+                                BoxDynError::from(format!(
+                                    "unresolved record element type at index {}: {}",
+                                    self.ind, e
+                                ))
+                            })?;
+                        ty
                     }
 
-                    PgTypeKind::Composite(fields) => {
-                        let ty = fields[self.ind].1.clone();
-                        if ty.0.oid() != element_type_oid {
+                    PgTypeKind::Composite(composite) => {
+                        // User-defined composite type
+                        let ty = composite.fields[self.ind].1.get();
+                        if ty.oid() != element_type_oid {
                             return Err("unexpected mismatch of composite type information".into());
                         }
 
-                        Some(ty)
+                        ty
                     }
 
                     _ => {
@@ -127,16 +146,16 @@ impl<'r> PgRecordDecoder<'r> {
 
                 self.ind += 1;
 
-                if let Some(ty) = &element_type_opt {
-                    if !ty.is_null() && !T::compatible(ty) {
-                        return Err(mismatched_types::<Postgres, T>(ty));
-                    }
+                if !element_type.is_null() && !T::compatible(&element_type) {
+                    return Err(mismatched_types::<Postgres, T>(&element_type));
                 }
 
-                let element_type =
-                    element_type_opt.unwrap_or_else(|| PgTypeInfo::with_oid(element_type_oid));
-
-                T::decode(PgValueRef::get(&mut self.buf, self.fmt, element_type))
+                T::decode(PgValueRef::get(
+                    &mut self.buf,
+                    self.fmt,
+                    self.catalog.clone(),
+                    element_type,
+                ))
             }
 
             PgValueFormat::Text => {
@@ -190,13 +209,20 @@ impl<'r> PgRecordDecoder<'r> {
                 // NOTE: we do not call [`accepts`] or give a chance to from a user as
                 //       TEXT sequences are not strongly typed
 
+                // NOTE: We pass `UNKNOWN` as the type because we don't have a reasonable value
+                //       we could use.
+                let type_info = self
+                    .catalog
+                    .read()
+                    .resolve_type_info(&PgTypeRef::Oid(PgBuiltinType::Unknown.oid()))
+                    .expect("(BUG) Local catalog is missing the postgres `UNKNOWN` type");
+
                 T::decode(PgValueRef {
-                    // NOTE: We pass `0` as the type ID because we don't have a reasonable value
-                    //       we could use.
-                    type_info: PgTypeInfo::with_oid(Oid(0)),
-                    format: self.fmt,
                     value: buf,
                     row: None,
+                    catalog: self.catalog.clone(),
+                    type_info,
+                    format: self.fmt,
                 })
             }
         }

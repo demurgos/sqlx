@@ -95,6 +95,11 @@ pub trait Database:
     /// The concrete `TypeInfo` implementation for this database.
     type TypeInfo: TypeInfo;
 
+    /// A type that may be turned into a `TypeInfo` by the database. This
+    /// usually corresponds to a type declaration by name. The actual type info
+    /// is then fetched from the database as needed.
+    type LazyTypeInfo: Debug + Clone + PartialEq + Send + Sync;
+
     /// The concrete type used to hold an owned copy of the not-yet-decoded value that was
     /// received from the database.
     type Value: Value<Database = Self> + 'static;

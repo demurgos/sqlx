@@ -134,7 +134,7 @@ macro_rules! impl_executor_for_transaction {
             fn prepare_with<'e, 'q: 'e>(
                 self,
                 sql: &'q str,
-                parameters: &'e [<Self::Database as crate::database::Database>::TypeInfo],
+                parameters: &'e [<Self::Database as crate::database::Database>::LazyTypeInfo],
             ) -> futures_core::future::BoxFuture<
                 'e,
                 Result<

@@ -13,7 +13,7 @@ use crate::executor::{Execute, Executor};
 use crate::pool::PoolOptions;
 use crate::pool::{Pool, PoolConnection};
 use crate::postgres::message::{MessageFormat, Notification};
-use crate::postgres::{PgConnection, PgQueryResult, PgRow, PgStatement, PgTypeInfo, Postgres};
+use crate::postgres::{LazyPgTypeInfo, PgConnection, PgQueryResult, PgRow, PgStatement, Postgres};
 
 /// A stream of asynchronous notifications from Postgres.
 ///
@@ -353,7 +353,7 @@ impl<'c> Executor<'c> for &'c mut PgListener {
     fn prepare_with<'e, 'q: 'e>(
         self,
         query: &'q str,
-        parameters: &'e [PgTypeInfo],
+        parameters: &'e [LazyPgTypeInfo],
     ) -> BoxFuture<'e, Result<PgStatement<'q>, Error>>
     where
         'c: 'e,

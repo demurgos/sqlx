@@ -4,6 +4,7 @@ use crate::executor::Executor;
 
 mod advisory_lock;
 mod arguments;
+mod catalog;
 mod column;
 mod connection;
 mod copy;
@@ -17,7 +18,10 @@ mod query_result;
 mod row;
 mod statement;
 mod transaction;
-mod type_info;
+mod type_info {
+    pub use crate::postgres::type_info2::*;
+}
+mod type_info2;
 pub mod types;
 mod value;
 
@@ -38,7 +42,7 @@ pub use query_result::PgQueryResult;
 pub use row::PgRow;
 pub use statement::PgStatement;
 pub use transaction::PgTransactionManager;
-pub use type_info::{PgTypeInfo, PgTypeKind};
+pub use type_info::{LazyPgTypeInfo, PgBuiltinType, PgTypeInfo, PgTypeKind};
 pub use types::PgHasArrayType;
 pub use value::{PgValue, PgValueFormat, PgValueRef};
 

@@ -1,4 +1,5 @@
 use crate::error::{BoxDynError, UnexpectedNullError};
+use crate::postgres::catalog::LocalPgCatalogHandle;
 use crate::postgres::{PgTypeInfo, Postgres};
 use crate::value::{Value, ValueRef};
 use bytes::{Buf, Bytes};
@@ -17,6 +18,7 @@ pub enum PgValueFormat {
 pub struct PgValueRef<'r> {
     pub(crate) value: Option<&'r [u8]>,
     pub(crate) row: Option<&'r Bytes>,
+    pub(crate) catalog: LocalPgCatalogHandle,
     pub(crate) type_info: PgTypeInfo,
     pub(crate) format: PgValueFormat,
 }
@@ -25,12 +27,18 @@ pub struct PgValueRef<'r> {
 #[derive(Clone)]
 pub struct PgValue {
     pub(crate) value: Option<Bytes>,
+    pub(crate) catalog: LocalPgCatalogHandle,
     pub(crate) type_info: PgTypeInfo,
     pub(crate) format: PgValueFormat,
 }
 
 impl<'r> PgValueRef<'r> {
-    pub(crate) fn get(buf: &mut &'r [u8], format: PgValueFormat, ty: PgTypeInfo) -> Self {
+    pub(crate) fn get(
+        buf: &mut &'r [u8],
+        format: PgValueFormat,
+        catalog: LocalPgCatalogHandle,
+        ty: PgTypeInfo,
+    ) -> Self {
         let mut element_len = buf.get_i32();
 
         let element_val = if element_len == -1 {
@@ -45,6 +53,7 @@ impl<'r> PgValueRef<'r> {
         PgValueRef {
             value: element_val,
             row: None,
+            catalog,
             type_info: ty,
             format,
         }
@@ -74,6 +83,7 @@ impl Value for PgValue {
         PgValueRef {
             value: self.value.as_deref(),
             row: None,
+            catalog: self.catalog.clone(),
             type_info: self.type_info.clone(),
             format: self.format,
         }
@@ -102,6 +112,7 @@ impl<'r> ValueRef<'r> for PgValueRef<'r> {
 
         PgValue {
             value,
+            catalog: self.catalog.clone(),
             format: self.format,
             type_info: self.type_info.clone(),
         }

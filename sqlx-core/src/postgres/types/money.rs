@@ -1,3 +1,5 @@
+use crate::postgres::type_info2::PgBuiltinType;
+use crate::postgres::LazyPgTypeInfo;
 use crate::{
     decode::Decode,
     encode::{Encode, IsNull},
@@ -144,14 +146,22 @@ impl PgMoney {
 }
 
 impl Type<Postgres> for PgMoney {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::MONEY
+    fn type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::MONEY
+    }
+
+    fn compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::Money.oid()
     }
 }
 
 impl PgHasArrayType for PgMoney {
-    fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::MONEY_ARRAY
+    fn array_type_info() -> LazyPgTypeInfo {
+        LazyPgTypeInfo::MONEY_ARRAY
+    }
+
+    fn array_compatible(ty: &PgTypeInfo) -> bool {
+        ty.oid() == PgBuiltinType::MoneyArray.oid()
     }
 }
 
